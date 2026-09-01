@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Para Paola 💕</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0f0518;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow: hidden;
+    }
+    .game-container {
+      width: 100%;
+      max-width: 480px;
+      background: #1a0b2e;
+      border-radius: 16px;
+      overflow: hidden;
+      color: #fff;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .game-header {
+      padding: 16px 20px;
+      background: linear-gradient(90deg, #ff6b9d, #c44569);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .game-header h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+    .level-badge {
+      background: rgba(255,255,255,0.2);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    canvas { display: block; width: 100%; aspect-ratio: 4/3; background: linear-gradient(180deg, #2d1b4e 0%, #1a0b2e 100%); cursor: pointer; }
+    .controls {
+      display: flex; justify-content: center; gap: 12px;
+      padding: 16px; background: #2d1b4e;
+    }
+    .btn {
+      width: 56px; height: 56px; border-radius: 50%; border: none;
+      background: #ff6b9d; color: white; font-size: 22px; font-weight: bold;
+      cursor: pointer; box-shadow: 0 4px 15px rgba(255,107,157,0.4);
+      transition: transform 0.1s; user-select: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn:active { transform: scale(0.92); }
+    .btn-jump { background: #ffeaa7; color: #2d1b4e; box-shadow: 0 4px 15px rgba(255,234,167,0.4); }
+    .message-box {
+      padding: 14px 20px; text-align: center; font-size: 15px;
+      min-height: 48px; background: rgba(0,0,0,0.2);
+    }
+    .letter-display {
+      display: flex; justify-content: center; gap: 6px;
+      padding: 10px; background: #1a0b2e; flex-wrap: wrap;
+    }
+    .letter-slot {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3);
+      border: 2px solid rgba(255,255,255,0.1);
+      transition: all 0.4s ease;
+    }
+    .letter-slot.collected {
+      background: #ff6b9d; color: white; border-color: #ff6b9d;
+      box-shadow: 0 0 12px rgba(255,107,157,0.5); transform: scale(1.1);
+    }
+    .letter-slot.space { width: 16px; background: transparent; border: none; }
+    .overlay {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(26,11,46,0.95); text-align: center;
+      padding: 24px; z-index: 10;
+    }
+    .overlay h1 {
+      font-size: 32px; margin: 0 0 8px;
+      background: linear-gradient(90deg, #ff6b9d, #ffeaa7);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .overlay p { font-size: 16px; opacity: 0.8; margin-bottom: 24px; }
+    .big-btn {
+      padding: 14px 36px; border-radius: 30px; border: none;
+      background: linear-gradient(90deg, #ff6b9d, #c44569);
+      color: white; font-size: 16px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(255,107,157,0.4);
+      transition: transform 0.15s;
+    }
+    .big-btn:active { transform: scale(0.95); }
+    .canvas-wrap { position: relative; }
+    .final-message { font-size: 20px; color: #ffeaa7; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="game-header">
+      <h2>❤️ Te Amo Paola</h2>
+      <div class="level-badge" id="levelBadge">Nivel 1</div>
+    </div>
+    <div class="letter-display" id="letterDisplay"></div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="gameCanvas" width="480" height="360"></canvas>
+      <div class="overlay" id="overlay">
+        <h1>Para Paola 💕</h1>
+        <p>Hice esto pensando en ti.<br>Usa las flechas para moverte y salta con el botón.</p>
+        <button class="big-btn" id="startBtn">💝 Empezar</button>
+      </div>
+    </div>
+    <div class="message-box" id="messageBox">¡Recoge cada letra para revelar el mensaje!</div>
+    <div class="controls">
+      <button class="btn" id="btnLeft">◀</button>
+      <button class="btn btn-jump" id="btnJump">▲</button>
+      <button class="btn" id="btnRight">▶</button>
+    </div>
+  </div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const startBtn = document.getElementById('startBtn');
+const levelBadge = document.getElementById('levelBadge');
+const messageBox = document.getElementById('messageBox');
+const letterDisplay = document.getElementById('letterDisplay');
+
+const WORD = "TE AMO PAOLA";
+const LETTERS = WORD.split('');
+const LEVELS = [
+  { letter: 'T', msg: "Todo comienza con una palabra..." },
+  { letter: 'E', msg: "Eres la razón de mi sonrisa." },
+  { letter: ' ', msg: "(un espacio para respirar...)" },
+  { letter: 'A', msg: "Amor es lo que siento por ti." },
+  { letter: 'M', msg: "Mi corazón late más fuerte." },
+  { letter: 'O', msg: "Observo el cielo y pienso en ti." },
+  { letter: ' ', msg: "(otro espacio para soñar...)" },
+  { letter: 'P', msg: "Paola, tu nombre es poesía." },
+  { letter: 'A', msg: "Alma gemela, eso eres para mí." },
+  { letter: 'O', msg: "Oro no vale más que tu risa." },
+  { letter: 'L', msg: "Luz que ilumina mis días." },
+  { letter: 'A', msg: "Amor infinito... ¡Te Amo Paola! 💕" }
+];
+
+let level = 0, collected = [], gameState = 'menu', frameId = null;
+let player = { x: 40, y: 280, w: 28, h: 28, vx: 0, vy: 0, onGround: false };
+const GRAVITY = 0.6, SPEED = 4, JUMP = -11;
+let target = { x: 400, y: 200, w: 36, h: 36, float: 0 };
+
+const platforms = [
+  [{x:0,y:320,w:480,h:40}, {x:150,y:250,w:100,h:16}, {x:300,y:200,w:120,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:80,y:260,w:80,h:16}, {x:200,y:200,w:80,h:16}, {x:340,y:160,w:100,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:120,y:270,w:60,h:16}, {x:240,y:220,w:60,h:16}, {x:360,y:170,w:80,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:50,y:260,w:100,h:16}, {x:180,y:200,w:60,h:16}, {x:300,y:150,w:120,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:100,y:280,w:80,h:16}, {x:220,y:230,w:80,h:16}, {x:350,y:180,w:100,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:60,y:250,w:120,h:16}, {x:240,y:190,w:80,h:16}, {x:380,y:140,w:80,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:140,y:260,w:60,h:16}, {x:260,y:210,w:60,h:16}, {x:380,y:160,w:80,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:80,y:270,w:100,h:16}, {x:220,y:210,w:100,h:16}, {x:360,y:150,w:100,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:50,y:260,w:80,h:16}, {x:160,y:200,w:80,h:16}, {x:280,y:160,w:80,h:16}, {x:400,y:120,w:60,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:90,y:250,w:120,h:16}, {x:260,y:190,w:80,h:16}, {x:390,y:140,w:70,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:70,y:260,w:100,h:16}, {x:200,y:210,w:100,h:16}, {x:340,y:160,w:100,h:16}],
+  [{x:0,y:320,w:480,h:40}, {x:100,y:270,w:80,h:16}, {x:240,y:220,w:80,h:16}, {x:380,y:170,w:80,h:16}]
+];
+
+const spikes = [
+  [], [{x:180,y:304,w:20,h:16}, {x:260,y:304,w:20,h:16}], [{x:200,y:304,w:20,h:16}],
+  [{x:320,y:304,w:20,h:16}, {x:360,y:304,w:20,h:16}],
+  [{x:150,y:304,w:20,h:16}, {x:300,y:304,w:20,h:16}],
+  [{x:100,y:304,w:20,h:16}, {x:400,y:304,w:20,h:16}],
+  [{x:220,y:304,w:20,h:16}],
+  [{x:180,y:304,w:20,h:16}, {x:340,y:304,w:20,h:16}],
+  [{x:120,y:304,w:20,h:16}, {x:280,y:304,w:20,h:16}],
+  [{x:200,y:304,w:20,h:16}, {x:380,y:304,w:20,h:16}],
+  [{x:160,y:304,w:20,h:16}, {x:320,y:304,w:20,h:16}],
+  [{x:240,y:304,w:20,h:16}]
+];
+
+const stars = Array.from({length: 40}, () => ({
+  x: Math.random() * 480, y: Math.random() * 320,
+  r: Math.random() * 2 + 0.5, alpha: Math.random(), speed: Math.random() * 0.02 + 0.005
+}));
+
+function buildLetterDisplay() {
+  letterDisplay.innerHTML = '';
+  LETTERS.forEach((ch, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'letter-slot' + (ch === ' ' ? ' space' : '') + (i < collected.length ? ' collected' : '');
+    slot.textContent = ch === ' ' ? '' : ch;
+    letterDisplay.appendChild(slot);
+  });
+}
+buildLetterDisplay();
+
+function resetLevel() {
+  player.x = 40; player.y = 280; player.vx = 0; player.vy = 0; player.onGround = false;
+  target.x = 400 + Math.random() * 40 - 20;
+  target.y = 120 + Math.random() * 100;
+}
+
+function drawRoundedRect(x, y, w, h, r, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath(); ctx.fill();
+}
+
+function drawHeart(x, y, size, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y + size / 4);
+  ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + size / 4);
+  ctx.bezierCurveTo(x - size / 2, y + size / 2, x, y + size * 0.75, x, y + size);
+  ctx.bezierCurveTo(x, y + size * 0.75, x + size / 2, y + size / 2, x + size / 2, y + size / 4);
+  ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + size / 4);
+  ctx.fill();
+}
+
+function draw() {
+  ctx.fillStyle = '#1a0b2e'; ctx.fillRect(0, 0, 480, 360);
+  stars.forEach(s => {
+    s.alpha += s.speed;
+    const a = 0.3 + 0.7 * Math.abs(Math.sin(s.alpha));
+    ctx.fillStyle = `rgba(255, 234, 167, ${a})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.fillStyle = '#ffeaa7'; ctx.beginPath(); ctx.arc(420, 60, 28, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a0b2e'; ctx.beginPath(); ctx.arc(410, 52, 24, 0, Math.PI * 2); ctx.fill();
+
+  const plats = platforms[level] || platforms[0];
+  plats.forEach(p => { drawRoundedRect(p.x, p.y, p.w, p.h, 6, '#6c5ce7'); drawRoundedRect(p.x + 2, p.y + 2, p.w - 4, p.h - 4, 4, '#a29bfe'); });
+
+  const spk = spikes[level] || [];
+  spk.forEach(s => {
+    ctx.fillStyle = '#ff4757';
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(s.x + i * (s.w/3), s.y + s.h);
+      ctx.lineTo(s.x + i * (s.w/3) + s.w/6, s.y);
+      ctx.lineTo(s.x + (i+1) * (s.w/3), s.y + s.h);
+      ctx.closePath(); ctx.fill();
+    }
+  });
+
+  target.float += 0.05;
+  const floatY = Math.sin(target.float) * 6;
+  const tx = target.x, ty = target.y + floatY;
+  ctx.shadowColor = '#ff6b9d'; ctx.shadowBlur = 20;
+  drawRoundedRect(tx - 4, ty - 4, target.w + 8, target.h + 8, 10, 'rgba(255,107,157,0.3)');
+  ctx.shadowBlur = 0;
+  drawRoundedRect(tx, ty, target.w, target.h, 8, '#ff6b9d');
+  drawRoundedRect(tx + 2, ty + 2, target.w - 4, target.h - 4, 6, '#fff');
+  ctx.fillStyle = '#c44569'; ctx.font = 'bold 22px "Segoe UI", sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(LEVELS[level].letter, tx + target.w/2, ty + target.h/2 + 1);
+
+  drawRoundedRect(player.x, player.y, player.w, player.h, 8, '#ffeaa7');
+  ctx.fillStyle = '#2d1b4e';
+  ctx.beginPath(); ctx.arc(player.x + 8, player.y + 11, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(player.x + 20, player.y + 11, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(player.x + 14, player.y + 16, 5, 0.2, Math.PI - 0.2);
+  ctx.strokeStyle = '#2d1b4e'; ctx.lineWidth = 2; ctx.stroke();
+
+  if (gameState === 'playing') {
+    ctx.fillStyle = 'rgba(255,107,157,0.15)';
+    for (let i = 0; i < 3; i++) drawHeart(player.x - 10 + i*8, player.y + 30 + i*3, 6, 'rgba(255,107,157,0.2)');
+  }
+}
+
+function update() {
+  if (gameState !== 'playing') return;
+  player.vy += GRAVITY;
+  player.x += player.vx; player.y += player.vy;
+  if (player.y + player.h > 320) { player.y = 320 - player.h; player.vy = 0; player.onGround = true; }
+  const plats = platforms[level] || [];
+  player.onGround = false;
+  plats.forEach(p => {
+    if (player.x + player.w > p.x && player.x < p.x + p.w && player.y + player.h >= p.y && player.y + player.h <= p.y + p.h + 10 && player.vy >= 0) {
+      player.y = p.y - player.h; player.vy = 0; player.onGround = true;
+    }
+  });
+  if (player.x < 0) player.x = 0; if (player.x + player.w > 480) player.x = 480 - player.w;
+  const spk = spikes[level] || [];
+  spk.forEach(s => { if (player.x + player.w > s.x && player.x < s.x + s.w && player.y + player.h > s.y && player.y < s.y + s.h) resetLevel(); });
+  const floatY = Math.sin(target.float) * 6;
+  const tx = target.x, ty = target.y + floatY;
+  if (player.x + player.w > tx && player.x < tx + target.w && player.y + player.h > ty && player.y < ty + target.h) levelComplete();
+}
+
+function levelComplete() {
+  collected.push(LEVELS[level].letter);
+  buildLetterDisplay();
+  if (level < LEVELS.length - 1) {
+    level++; levelBadge.textContent = 'Nivel ' + (level + 1);
+    messageBox.textContent = LEVELS[level].msg; resetLevel();
+  } else {
+    gameState = 'won';
+    messageBox.innerHTML = '<b>¡Te Amo Paola! 💕</b> Gracias por jugar hasta el final.';
+    overlay.innerHTML = `<h1>Te Amo Paola</h1><div class="final-message">Cada nivel, cada letra, cada salto...<br>fue pensado para ti. 💖</div><button class="big-btn" id="restartBtn" style="margin-top:20px">🔄 Jugar de nuevo</button>`;
+    overlay.style.display = 'flex';
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      level = 0; collected = []; buildLetterDisplay(); levelBadge.textContent = 'Nivel 1';
+      messageBox.textContent = '¡Recoge cada letra para revelar el mensaje!'; resetLevel();
+      overlay.style.display = 'none'; gameState = 'playing';
+    });
+  }
+}
+
+function loop() { update(); draw(); frameId = requestAnimationFrame(loop); }
+
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (['ArrowLeft','ArrowRight','ArrowUp',' '].includes(e.key)) e.preventDefault();
+  handleKeys();
+});
+window.addEventListener('keyup', e => { keys[e.key] = false; handleKeys(); });
+
+function handleKeys() {
+  if (gameState !== 'playing') return;
+  player.vx = 0;
+  if (keys['ArrowLeft'] || keys['a']) player.vx = -SPEED;
+  if (keys['ArrowRight'] || keys['d']) player.vx = SPEED;
+  if ((keys['ArrowUp'] || keys['w'] || keys[' ']) && player.onGround) { player.vy = JUMP; player.onGround = false; }
+}
+
+function addTouch(btn, key) {
+  btn.addEventListener('touchstart', e => { e.preventDefault(); keys[key] = true; handleKeys(); });
+  btn.addEventListener('touchend', e => { e.preventDefault(); keys[key] = false; handleKeys(); });
+  btn.addEventListener('mousedown', e => { keys[key] = true; handleKeys(); });
+  btn.addEventListener('mouseup', e => { keys[key] = false; handleKeys(); });
+  btn.addEventListener('mouseleave', e => { keys[key] = false; handleKeys(); });
+}
+addTouch(document.getElementById('btnLeft'), 'ArrowLeft');
+addTouch(document.getElementById('btnRight'), 'ArrowRight');
+addTouch(document.getElementById('btnJump'), 'ArrowUp');
+
+startBtn.addEventListener('click', () => {
+  overlay.style.display = 'none'; gameState = 'playing'; resetLevel();
+  messageBox.textContent = LEVELS[0].msg;
+});
+
+draw(); loop();
+</script>
+</body>
+</html>
